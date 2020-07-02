@@ -1,0 +1,9 @@
+{
+    "Service": {
+      "url": "https://financialmodelingprep.com/api/v3/",
+      "apiKey": ["c88890690870de86a2f000c0cf33a346",
+                 "f2f676fefb4c5d12e9da7634d2067e4a"],
+      "emails": ["diego.sacchetto.eng@gmail.com",
+                 "diego.billing@gmail.com"]
+    }
+}
