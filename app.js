@@ -36,6 +36,12 @@ let days = args[4];
 
 const drawing = true;
 
+const xPosAverages = 10;               // x cooridnate for charts
+const yPosAverages = 2;                // y coordinate for averages chart
+const maxPriceDiffBarHeight = 20;      // Max height in screen rows of a bar that indicates high/low price range.
+const yPosPriceDiffBarsChart = 19;     // y coordinate for prices diff charts trend
+const maxVolumeBarHeight = 10;         // Max height in screen rows of a bar that indicates high/low price range.
+
 if (key) {
     if (operations.indexOf(operation) >= 0) {
         if (operation === HELP_OP) {
@@ -117,10 +123,9 @@ function averageMinMax(ticker, numDays) {
         let tickerPrice = resultApis[1][0];
         let prices = data.historical;
 
-        let x = 10;
-        let y = 2;
-
         if (drawing) ctx.clear(); 
+
+        let x = xPosAverages;
 
         for (let i in numDays) {
             let length = +numDays[i];
@@ -128,11 +133,13 @@ function averageMinMax(ticker, numDays) {
             if (length < prices.length) {
                 // extract sub-array 
                 let subRangePrice = prices.slice(0, length);
-                renderAveragesChart(tickerPrice, subRangePrice, x, y);
+                renderAveragesChart(tickerPrice, subRangePrice, x, yPosAverages);
             } else {
-                renderAveragesChart(tickerPrice, prices, x, y);
+                renderAveragesChart(tickerPrice, prices, xPosAverages, yPosAverages);
 
-                renderTrendChart(prices, 10, 22);
+                renderHighLowDailyTrend(prices, xPosAverages, yPosPriceDiffBarsChart);
+
+                renderVolumeTrend(prices, xPosAverages, yPosPriceDiffBarsChart + maxPriceDiffBarHeight + 3);
             }
 
             x += 75; // Display to right
@@ -147,7 +154,10 @@ function averageMinMax(ticker, numDays) {
 
 /**
  * Given an array of json data render a chart 
+ * @param {*} tickerPrice 
  * @param {*} prices 
+ * @param {*} x 
+ * @param {*} y 
  */
 function renderAveragesChart(tickerPrice, prices, x, y) {
     let total = prices.length;
@@ -266,10 +276,10 @@ function renderAveragesChart(tickerPrice, prices, x, y) {
 
     let w = 40;
     let h = 1;
-    let offset = 2;
+    let offset = 0;
     
     if (drawing) {
-        ctx.bg(255,255,0);
+        ctx.bg(255,255,255);
         ctx.fg(0,0,0);
         ctx.text(x, y, ' ' + ticker + ', ' + total + ' days range: ' + daysRangeLabels + ' - Avg Low & Avg High ');
     
@@ -293,24 +303,22 @@ function renderAveragesChart(tickerPrice, prices, x, y) {
 
 /**
  * Display the trading trend in a range of N days
- * @param {*} ticker 
- * @param {*} days 
+ * @param {*} prices 
+ * @param {*} x 
+ * @param {*} y 
  */
-function renderTrendChart(prices, x, y) {
+function renderHighLowDailyTrend(prices, x, y) {
     let numDays = prices.length;
 
-    let daysRangeLabels = '[' + prices[prices.length-1].label + ' - ' + prices[0].label + ']';
-
     if (drawing) {
-        ctx.bg(255,255,0);
+        ctx.bg(255,255,255);
         ctx.fg(0,0,0);
-        ctx.text(x, y, ' ' + ticker + ', ' + numDays + ' days range: ' + daysRangeLabels + ' - Trading Trend ');
+        ctx.text(x, y, ' ' + numDays + ' days - Daily high/low trend ');
     }
 
     let xPos = x;
     let yPos = y+2;
     let w = 1;          // Bar width
-    let maxH = 20;      // Max height of a bar.
     let colors = [];
      
     let minLow = Number.MAX_VALUE;
@@ -328,7 +336,7 @@ function renderTrendChart(prices, x, y) {
     }
 
     let maxDelta = maxHigh-minLow;    // max variations of price
-    let screenStep = maxDelta / maxH; // step to normalize prices into screen coordinates
+    let screenStep = maxDelta / maxPriceDiffBarHeight; // step to normalize prices into screen coordinates
     
     if (!drawing) {
         debug('Prices:', prices);
@@ -338,7 +346,7 @@ function renderTrendChart(prices, x, y) {
 
     for (var i = prices.length - 1; i>=0; i--) {  // prices are newest top array, so display from oldest to newest 
         let delta = prices[i].high - prices[i].low;
-        let h = (delta / screenStep).toFixed(0);   //((maxH * delta) / maxDelta).toFixed(0);  // High of the bar to draw: (h:maxH = delta : MaxDelta)
+        let h = (delta / screenStep).toFixed(0);   //((maxPriceDiffBarHeight * delta) / maxDelta).toFixed(0);  // High of the bar to draw: (h:maxPriceDiffBarHeight = delta : MaxDelta)
 
         let yOffset = +((maxHigh - prices[i].high)/screenStep).toFixed(0);
         let yy = yPos + yOffset;
@@ -349,13 +357,10 @@ function renderTrendChart(prices, x, y) {
         }
 
         if (prices[i].open > prices[i].close) {           // trending down
-
             colors = [241, 9, 9];   // Red
         } else if (prices[i].open < prices[i].close) {    // trending up
-
             colors = [0, 212, 20];   // Green
         } else {  // no trend;
-
             colors = [255, 252, 252];   // White
         }
 
@@ -371,23 +376,64 @@ function renderTrendChart(prices, x, y) {
 
         xPos += 2
     }
-
-    
-
-    /*print('\n');
-    let header = ' ------------ ' + ticker + ', ' + numDays + ' days range: ' + daysRangeLabels + ' - Trading Trend -----------';
-    print(header);
-
-    print('| Trend: ' + trendMarks);
-    print(colors.brightYellow('| Trend with daily % variation [H-L]: ' + trendMarksPercentage));
-    print('| Highs: ' + highs);
-    print('| Lows: ' + lows);
-    print('| Unchanged: ' + same);
-
-    print(getFooterLine(header.length));
-    print('\n');*/
 }
 
+function renderVolumeTrend(prices, x, y) {
+    let numDays = prices.length;
+
+    if (drawing) {
+        ctx.bg(255,255,255);
+        ctx.fg(0,0,0);
+        ctx.text(x, y, ' ' + numDays + ' days - Daily volume trend ');
+    }
+
+    let xPos = x;
+    let yPos = y+2;
+    let w = 1;          // Bar width
+    let colors = [];
+
+    //let minVolume = Number.MAX_VALUE;
+    let maxVolume = Number.MIN_VALUE;
+
+    // find max and min volume
+    for (let i=0; i<prices.length; i++) {
+        if (prices[i].volume > maxVolume) {
+            maxVolume = prices[i].volume;
+        }
+
+        //if (prices[i].volume < minVolume) {
+        //    minVolume = prices[i].volume;
+        //}
+    }
+
+    //let maxDelta = maxVolume-minVolume;             // max variations of volume
+    let screenStep = maxVolume / maxVolumeBarHeight; // step to normalize volume into screen coordinates
+
+    if (!drawing) {
+        debug('Max Volume: ' + maxVolume);
+    }
+
+    for (var i = prices.length - 1; i>=0; i--) {  // prices are newest top array, so display from oldest to newest 
+        let h = (prices[i].volume / screenStep).toFixed(0);   
+
+        let yy = yPos + maxVolumeBarHeight - h;
+
+        if (prices[i].open > prices[i].close) {           // trending down
+            colors = [241, 9, 9];   // Red
+        } else if (prices[i].open < prices[i].close) {    // trending up
+            colors = [0, 212, 20];   // Green
+        } else {  // no trend;
+            colors = [255, 252, 252];   // White
+        }
+
+        if (drawing) {
+            ctx.bg(colors[0], colors[1], colors[2]);
+            ctx.box(xPos, yy, w, h);
+        }
+
+        xPos += 2
+    }
+}
 
 // Utilities
 
