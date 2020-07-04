@@ -1,4 +1,5 @@
 const print = console.log.bind(console);
+const debug = console.log.bind(console);
 
 const config = require('config');
 const fetch = require('node-fetch');
@@ -11,8 +12,8 @@ const propsFileName = 'data.props';
 
 const serviceUrl = config.get('Service.url');
 const keys = config.get('Service.apiKey');
-var properties = propertiesHandler(propsFileName);
-var counter = +properties.get('counter.api.index');
+let properties = propertiesHandler(propsFileName);
+let counter = +properties.get('counter.api.index');
 
 if (counter >= keys.length) {
     print('You don\'t have a new key available. Please add another key');
@@ -33,6 +34,8 @@ let operation = args[2];
 let ticker = args[3];
 let days = args[4];
 
+const drawing = true;
+
 if (key) {
     if (operations.indexOf(operation) >= 0) {
         if (operation === HELP_OP) {
@@ -42,28 +45,27 @@ if (key) {
             print(' ------------------------------------------------------------------------------------------------\n');
         } else if (operation === ALAH_OP) {           // Average low and Average high in a days window range
 
-            let goodRange = true;
+            let wellDefinedDaysRange = true; // The input provided is a well defined range of days
             let daysArray;
 
             if (days) {
                 daysArray = days.split(',');
 
                 if (daysArray.length>=1 && daysArray.length<= 3) {
-                    var prev = +daysArray[0];
+                    let prev = +daysArray[0];
                     
-                    for (var i=1; i<daysArray.length; i++) {
-                        goodRange &= (prev > +daysArray[i]);
+                    for (let i=1; i<daysArray.length; i++) {
+                        wellDefinedDaysRange &= (prev > +daysArray[i]);
                         prev = +daysArray[i];
                     }
                 } else {
-                    goodRange = false;
+                    wellDefinedDaysRange = false;
                 }
             } else {
-                goodRange = false;
+                wellDefinedDaysRange = false;
             }
 
-            if (goodRange) {
-                ctx.clear(); 
+            if (wellDefinedDaysRange) {
                 averageMinMax(ticker, daysArray);
             } else {
                 print('Number of days range shouldn\'t be more than 3 and descending order, comma separated.')
@@ -118,21 +120,25 @@ function averageMinMax(ticker, numDays) {
         let x = 10;
         let y = 2;
 
-        for (var i in numDays) {
+        if (drawing) ctx.clear(); 
+
+        for (let i in numDays) {
             let length = +numDays[i];
 
             if (length < prices.length) {
                 // extract sub-array 
                 let subRangePrice = prices.slice(0, length);
-                renederChartAverageMinMax(tickerPrice, subRangePrice, x, y);
+                renderAveragesChart(tickerPrice, subRangePrice, x, y);
             } else {
-                renederChartAverageMinMax(tickerPrice, prices, x, y);
+                renderAveragesChart(tickerPrice, prices, x, y);
+
+                renderTrendChart(prices, 10, 22);
             }
 
             x += 75; // Display to right
         }
 
-        ctx.cursor.restore();
+        if (drawing) ctx.cursor.restore();
 
     }).catch(function(err) {  
         errorHanlder(err);
@@ -143,7 +149,7 @@ function averageMinMax(ticker, numDays) {
  * Given an array of json data render a chart 
  * @param {*} prices 
  */
-function renederChartAverageMinMax(tickerPrice, prices, x, y) {
+function renderAveragesChart(tickerPrice, prices, x, y) {
     let total = prices.length;
 
     let daysRangeLabels = '[' + prices[prices.length-1].label + ' - ' + prices[0].label + ']';
@@ -157,7 +163,7 @@ function renederChartAverageMinMax(tickerPrice, prices, x, y) {
         lowest: Number.MAX_VALUE
     };
 
-    for (var i in prices) {
+    for (let i in prices) {
         if (prices[i].high > result.highest) result.highest = prices[i].high;
         result.medOpen  += prices[i].open;
         result.medHigh  += prices[i].high;
@@ -171,7 +177,7 @@ function renederChartAverageMinMax(tickerPrice, prices, x, y) {
     result.medLow   = Math.ceil(result.medLow/total * 100) / 100
     result.medClose = Math.ceil(result.medClose/total * 100) / 100
 
-    var buyMessage = 'N/A';
+    let buyMessage = 'N/A';
     if (result.medClose > result.medOpen   // Closing price > Opening price
         && (Math.abs(result.highest-result.medHigh) < Math.abs(result.medLow-result.lowest)) // Average high price getting closer to highest price, while the Average low price is getting away from lowest price
     ) {
@@ -179,7 +185,7 @@ function renederChartAverageMinMax(tickerPrice, prices, x, y) {
     }
 
     // Build results order by price
-    var report = [
+    let report = [
         {
             label: 'Current Price',
             value: tickerPrice ? tickerPrice.price : 0,
@@ -252,7 +258,7 @@ function renederChartAverageMinMax(tickerPrice, prices, x, y) {
         }
     ];
 
-    var sorted = report.sort(function(a, b) { 
+    let sorted = report.sort(function(a, b) { 
         return b.value > a.value ?  1
                 : b.value < a.value ? -1 
                 : 0;                 
@@ -261,25 +267,28 @@ function renederChartAverageMinMax(tickerPrice, prices, x, y) {
     let w = 40;
     let h = 1;
     let offset = 2;
-
-    ctx.bg(255,255,0);
-    ctx.fg(0,0,0);
-    ctx.text(x, y, ' ' + ticker + ', ' + total + ' days range: ' + daysRangeLabels + ' - Avg Low & Avg High ');
-
-    let yPos;
-    for (var i=0; i<sorted.length; i++) {
-        yPos = y + offset + (i+1)*2;
-
-        var obj = sorted[i];
-        ctx.bg(obj.r, obj.g, obj.b);
-        ctx.fg(obj.fr, obj.fg, obj.fb);
-        ctx.box(x, yPos, w, h);
-        ctx.text(x+2, yPos, obj.label + ': ' + obj.value);
+    
+    if (drawing) {
+        ctx.bg(255,255,0);
+        ctx.fg(0,0,0);
+        ctx.text(x, y, ' ' + ticker + ', ' + total + ' days range: ' + daysRangeLabels + ' - Avg Low & Avg High ');
+    
+        let yPos;
+        for (let i=0; i<sorted.length; i++) {
+            yPos = y + offset + (i+1)*2;
+    
+            let obj = sorted[i];
+            ctx.bg(obj.r, obj.g, obj.b);
+            ctx.fg(obj.fr, obj.fg, obj.fb);
+            ctx.box(x, yPos, w, h);
+            ctx.text(x+2, yPos, obj.label + ': ' + obj.value);
+        }
     }
+    
 
-    ctx.bg(255,255,0);
-    ctx.fg(0,0,0);
-    ctx.text(x, yPos + 4, ' Signal: ' + buyMessage + ' ');
+    //ctx.bg(255,255,0);
+    //ctx.fg(0,0,0);
+    //ctx.text(x, yPos + 4, ' Signal: ' + buyMessage + ' ');
 }
 
 /**
@@ -287,62 +296,96 @@ function renederChartAverageMinMax(tickerPrice, prices, x, y) {
  * @param {*} ticker 
  * @param {*} days 
  */
-function trendPrediction(ticker, numDays) {
-    let url1 = serviceUrl + '/historical-price-full/' + ticker + '?timeseries=' + numDays + '&apikey=' + key;
+function renderTrendChart(prices, x, y) {
+    let numDays = prices.length;
 
-    fetch(url1)
-    .then(function(response) { 
-        return response.json();
-    }).then(function(result) {
+    let daysRangeLabels = '[' + prices[prices.length-1].label + ' - ' + prices[0].label + ']';
 
-        if (result['Error Message']) {
-            throw new Error(data['Error Message']);
+    if (drawing) {
+        ctx.bg(255,255,0);
+        ctx.fg(0,0,0);
+        ctx.text(x, y, ' ' + ticker + ', ' + numDays + ' days range: ' + daysRangeLabels + ' - Trading Trend ');
+    }
+
+    let xPos = x;
+    let yPos = y+2;
+    let w = 1;          // Bar width
+    let maxH = 20;      // Max height of a bar.
+    let colors = [];
+     
+    let minLow = Number.MAX_VALUE;
+    let maxHigh = Number.MIN_VALUE;
+
+    // find max and min price
+    for (let i=0; i<prices.length; i++) {
+        if (prices[i].high > maxHigh) {
+            maxHigh = prices[i].high;
         }
-        
-        let prices = result.historical;
-        let daysRangeLabels = '[' + prices[prices.length-1].label + ' - ' + prices[0].label + ']';
 
-        let trendMarks = '';
-        let trendMarksPercentage = '';
-        let lows = 0;
-        let highs = 0;
-        let same = 0;
+        if (prices[i].low < minLow) {
+            minLow = prices[i].low;
+        }
+    }
 
-        for (var i = prices.length - 1; i>=0; i--) {
-            let spread = ((prices[i].high - prices[i].low) * 100) / prices[i].low;
-            let percentChange = '(' + Math.floor(spread) + '%), ';
+    let maxDelta = maxHigh-minLow;    // max variations of price
+    let screenStep = maxDelta / maxH; // step to normalize prices into screen coordinates
+    
+    if (!drawing) {
+        debug('Prices:', prices);
+        debug('Max Price: ', maxHigh, ' Min Price: ', minLow);
+    }
+    
 
-            if (prices[i].open > prices[i].close) {           // trending down
-                trendMarks += 'L, ';
-                trendMarksPercentage += 'L' + percentChange;
-                lows++;
-            } else if (prices[i].open < prices[i].close) {    // trending up
-                trendMarks += 'H, ';
-                trendMarksPercentage += 'H' + percentChange;
-                highs++;
-            } else {  // no trend
-                trendMarks += 'E, ';
-                trendMarksPercentage += 'E' + percentChange;
-                same++;
+    for (var i = prices.length - 1; i>=0; i--) {  // prices are newest top array, so display from oldest to newest 
+        let delta = prices[i].high - prices[i].low;
+        let h = (delta / screenStep).toFixed(0);   //((maxH * delta) / maxDelta).toFixed(0);  // High of the bar to draw: (h:maxH = delta : MaxDelta)
+
+        let yOffset = +((maxHigh - prices[i].high)/screenStep).toFixed(0);
+        let yy = yPos + yOffset;
+
+        if (!drawing) {
+            debug('High: ' + prices[i].high, 'Low: ' + prices[i].low, 'Open: ' + prices[i].open, 'Close: ' + prices[i].close, 'Delta (H-L): ' + delta);
+            debug('Max y pos: ' + yPos, 'Offset: ' + yOffset, 'Bar y pos: ' + yy, 'Bar height: ' + h);
+        }
+
+        if (prices[i].open > prices[i].close) {           // trending down
+
+            colors = [241, 9, 9];   // Red
+        } else if (prices[i].open < prices[i].close) {    // trending up
+
+            colors = [0, 212, 20];   // Green
+        } else {  // no trend;
+
+            colors = [255, 252, 252];   // White
+        }
+
+        if (drawing) {
+            if (h == 0) {
+                ctx.bg(104,104,104);
+                ctx.box(xPos, yy, w, 1);
+            } else {
+                ctx.bg(colors[0], colors[1], colors[2]);
+                ctx.box(xPos, yy, w, h);
             }
         }
 
-        print('\n');
-        let header = ' ------------ ' + ticker + ', ' + numDays + ' days range: ' + daysRangeLabels + ' - Trading Trend -----------';
-        print(header);
+        xPos += 2
+    }
 
-        print('| Trend: ' + trendMarks);
-        print(colors.brightYellow('| Trend with daily % variation [H-L]: ' + trendMarksPercentage));
-        print('| Highs: ' + highs);
-        print('| Lows: ' + lows);
-        print('| Unchanged: ' + same);
+    
 
-        print(getFooterLine(header.length));
-        print('\n');
+    /*print('\n');
+    let header = ' ------------ ' + ticker + ', ' + numDays + ' days range: ' + daysRangeLabels + ' - Trading Trend -----------';
+    print(header);
 
-    }).catch(function(err) {  
-        errorHanlder(err);
-    });
+    print('| Trend: ' + trendMarks);
+    print(colors.brightYellow('| Trend with daily % variation [H-L]: ' + trendMarksPercentage));
+    print('| Highs: ' + highs);
+    print('| Lows: ' + lows);
+    print('| Unchanged: ' + same);
+
+    print(getFooterLine(header.length));
+    print('\n');*/
 }
 
 
@@ -355,7 +398,7 @@ function trendPrediction(ticker, numDays) {
  */
 function getFooterLine(count) {
     let s = ' ';
-    for (var i=0; i<count-1; i++) {
+    for (let i=0; i<count-1; i++) {
         s += '-';
     }
     return s;
@@ -387,7 +430,7 @@ function errorHanlder(error) {
         return response.json();
     }).then(function(result) {
         let prices = result.historical;
-        console.log(result);
+        debug(result);
     }).catch(function(err) {  
         print('Fetch problem: ' + err.message);
     });
