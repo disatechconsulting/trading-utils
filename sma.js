@@ -23,16 +23,9 @@ if (counter >= keys.length) {
 const key = keys[counter];
 const API_KEY_EXPIRED_MESSAGE = 'APIs key expired - Please try again. Going to use next valid key';
 
-/** Allowed operations */
-const HELP_OP = 'help';
-const ALAH_OP = 'alah';
-const TREND_OP = 'trend'
-const operations = [HELP_OP, ALAH_OP, TREND_OP];
-
 let args = process.argv; 
-let operation = args[2];
-let ticker = args[3];
-let days = args[4];
+let ticker = args[2];
+let days = args[3];
 
 const drawing = true;
 
@@ -43,51 +36,31 @@ const yPosPriceDiffBarsChart = 19;     // y coordinate for prices diff charts tr
 const maxVolumeBarHeight = 10;         // Max height in screen rows of a bar that indicates high/low price range.
 
 if (key) {
-    if (operations.indexOf(operation) >= 0) {
-        if (operation === HELP_OP) {
-            print('\n ----------------------------- Trading Utilities Help Menu --------------------------------------');
-            print('| alah <stockSymbol> <numDays>: Average Low and Average High analysis. Use: node app.js alah JWN 2   |');
-            print('| trend <stockSymbol> <numDays>: Trend indicator. Use: node app.js trend JWN 2                       |');
-            print(' ------------------------------------------------------------------------------------------------\n');
-        } else if (operation === ALAH_OP) {           // Average low and Average high in a days window range
 
-            let wellDefinedDaysRange = true; // The input provided is a well defined range of days
-            let daysArray;
+    let wellDefinedDaysRange = true; // The input provided is a well defined range of days
+    let daysArray;
 
-            if (days) {
-                daysArray = days.split(',');
+    if (days) {
+        daysArray = days.split(',');
 
-                if (daysArray.length>=1 && daysArray.length<= 3) {
-                    let prev = +daysArray[0];
-                    
-                    for (let i=1; i<daysArray.length; i++) {
-                        wellDefinedDaysRange &= (prev > +daysArray[i]);
-                        prev = +daysArray[i];
-                    }
-                } else {
-                    wellDefinedDaysRange = false;
-                }
-            } else {
-                wellDefinedDaysRange = false;
-            }
-
-            if (wellDefinedDaysRange) {
-                averageMinMax(ticker, daysArray);
-            } else {
-                print('Number of days range shouldn\'t be more than 3 and descending order, comma separated.')
-            }
-           
+        if (daysArray.length>=1 && daysArray.length<= 3) {
+            let prev = +daysArray[0];
             
-
-        } else if(operation === TREND_OP) {    // Trend based on candle sticks
-            trendPrediction(ticker, days);
+            for (let i=1; i<daysArray.length; i++) {
+                wellDefinedDaysRange &= (prev > +daysArray[i]);
+                prev = +daysArray[i];
+            }
+        } else {
+            wellDefinedDaysRange = false;
         }
     } else {
-        print(' ----------------------------------------------------------------------------------');
-        print('| Unknown operation!!!                                                             |');
-        print('| The allowed operations are:', operations);
-        print('| Type `node app.js help` for details information about the operations             |');
-        print(' ----------------------------------------------------------------------------------');
+        wellDefinedDaysRange = false;
+    }
+
+    if (wellDefinedDaysRange) {
+        averageMinMax(ticker, daysArray);
+    } else {
+        print('Number of days range shouldn\'t be more than 3 and descending order, comma separated.')
     }
 } else {
     print('Invalid Key. Please check you have a valid key at index: ' + counter);
