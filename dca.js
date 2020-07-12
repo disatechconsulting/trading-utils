@@ -1,3 +1,5 @@
+const ctx = require('axel');
+
 const print = console.log.bind(console);
 
 let args = process.argv; 
@@ -13,14 +15,6 @@ let exitPrice = +args[8];            // Exit price
 
 // Calculate exit percentage from dollar cost average (moving target)
 let incExitPricePerc = (((exitPrice - bestPrice)*100)/bestPrice)/100;
-
-print('\n -----------------------------------------------------------------------------------');
-print('| Purchase: ' + ticker + ' plan with: $' + totalCost + ' max investment.');
-print('|      Initial purchase at price: $' + bestPrice);
-print('|      Next purchase when down: ' + args[5] + '% with max: ' + maxNumPurchases + ' additional cost averaging purchases.');
-print('|      If after ' + maxNumPurchases + ' DCA purchases, price drops: ' + args[7] + '% from average cost, exit.');
-print('|      Exit when price increases of: ' + (incExitPricePerc*100).toFixed(2) + '% from average cost');
-print(' -----------------------------------------------------------------------------------');
 
 const K = 1-downPerc;
 
@@ -39,22 +33,20 @@ transactions.push(transactionBuilder(numberShares, bestPrice, numberShares, best
                                      numberShares * bestPrice, 
                                      date.toLocaleDateString() + ' - ' + date.toLocaleTimeString()));
 
-printLineReport('Initial', transactions[0]);
-
 for (var i=0; i<=maxNumPurchases-1; i++) {
     let quantity = +Math.pow(2, i) * numberShares;
     let price = +(Math.pow((1+K)/2, i) * bestPrice * K).toFixed(2);
 
     addAndCalculateAverage(transactions, quantity, price, i==maxNumPurchases-1, totalCost);
-    
-    printLineReport(i+1, transactions[i+1]);
 }
 
 let lastTransaction = transactions[transactions.length-1];
 
 let result = lossWithoutDCA(totalCost, bestPrice, lastTransaction, stopLossPerc);
 
-extractAsCSV(transactions, result, ticker);
+let outputData = extractAsCSV(transactions, result, ticker);
+
+printResultOnScreen(outputData);
 
 
 function addAndCalculateAverage(ts, qty, prc, lastPurchase, maxInvestment) {
@@ -98,11 +90,11 @@ function transactionBuilder(nsp, pp, ts, ap, cl, cc, ed) {
     let t = {
         Nun_Shares_Purchase: +nsp,
         Price_Purchase: +pp,
+        Purchase_Cost: (nsp * pp).toFixed(2),
+        Cumulative_Cost: (cc).toFixed(2),
         Total_Shares: +ts,
         Avg_Price: +ap,
-        Purchase_Cost: (nsp * pp).toFixed(2),
         Current_Loss: (cl).toFixed(2),
-        Cumulative_Cost: (cc).toFixed(2),
         Executed_On: ed
     };
 
@@ -111,18 +103,97 @@ function transactionBuilder(nsp, pp, ts, ap, cl, cc, ed) {
     return t;
 }
 
-function printLineReport(iteration, data) {
-    print('\n---------------- Purchase #: ' + iteration + ' ----------------------');
-    print('Buy ' + data.Nun_Shares_Purchase + ' shares @ price: $' + data.Price_Purchase);
-    print('      - Total Number of Shares: ' + data.Total_Shares);
-    print('      - Average Purchase Price: $' + data.Avg_Price);
-    print('      - Purchase amount:        $' + data.Purchase_Cost);
-    print('      - Current Loss:         - $' + Math.abs(data.Current_Loss));
-    print('      - Total Cost Invested:    $' + data.Cumulative_Cost);
-    print('');
-    print('      - Exit Price:             $' + data.Exit_Price);
-    print('      - Trade Profit:           $' + data.Trade_Profit);
-    print('-----------------------------------------------------\n');
+/**
+ * Display results on screen
+ */
+function printResultOnScreen(data) {
+
+    let layout0 = [
+        { x : 2, bg: 255, br: 255, bb: 255 },
+        { x : 17, bg: 255, br: 236, bb: 71 },
+        { x : 41, bg: 255, br: 236, bb: 71 },
+        { x : 60, bg: 255, br: 236, bb: 71 },
+        { x : 78, bg: 71, br: 153, bb: 255 },
+        { x : 98, bg: 71, br: 153, bb: 255 },
+        { x : 115, bg: 71, br: 153, bb: 255 },
+        { x : 129, bg: 255, br: 71, bb: 80 },
+        { x : 146, bg: 2, br: 164, bb: 44 },
+        { x : 161, bg: 2, br: 164, bb: 44 }
+    ];
+
+    let layout1 = [
+        { x : 2, bg: 255, br: 255, bb: 255 },
+        { x : 23, bg: 255, br: 255, bb: 255 },
+    ];
+
+    let y = 2;
+    let layout = layout0;
+
+    ctx.clear();
+
+    ctx.bg(255, 255, 255);
+    ctx.fg(0,0,0);
+
+    ctx.text(layout[0].x, y,   fillTextwithSpaces(' Purchase: ' + ticker + ' plan with: $' + totalCost + ' max investment.', 90));
+    ctx.text(layout[0].x, y+1, fillTextwithSpaces('    Initial purchase at price: $' + bestPrice, 90));
+    ctx.text(layout[0].x, y+2, fillTextwithSpaces('    Next purchase when down: ' + args[5] + '% with max: ' + maxNumPurchases + ' additional cost averaging purchases.', 90));
+    ctx.text(layout[0].x, y+3, fillTextwithSpaces('    If after ' + maxNumPurchases + ' DCA purchases, price drops: ' + args[7] + '% from average cost, exit.', 90));
+    ctx.text(layout[0].x, y+4, fillTextwithSpaces('    Exit when price increases of: ' + (incExitPricePerc*100).toFixed(2) + '% from average cost', 90));
+
+    y += 6;
+
+    for (var j=0; j<data.length; j++) {
+        let row = data[j];
+
+        if (j==data.length-4) {
+            layout = layout1;
+        }
+
+        if (j != data.length-5) { // empty row
+            var c = 0;
+            for (var i=0; i<row.length; i++) {
+                if (i == 8 || i == 11) {
+                    continue;
+                } else {
+                    ctx.bg(layout[c].bg, layout[c].br, layout[c].bb);
+                    ctx.fg(0,0,0);
+                    let text = '  ' + row[i] + '  ';
+
+                    if (j==0) {
+                        layout[c].textWidth = text.length;
+                    } else if (j>0 && j<data.length-5) {
+                        text = fillTextwithSpaces(text, layout[c].textWidth);
+                    } else if (j>=data.length-4) {
+                        if (i==0) {
+                            text = fillTextwithSpaces(text, 20);
+                            text += ': '
+                        } else {
+                            text = fillTextwithSpaces(text, 15);
+                        }
+                        
+                    }
+                    
+                    ctx.text(layout[c].x, y, text);
+
+                    c++;
+                } 
+            }
+        }
+        
+        y += 1;
+    }
+
+    ctx.cursor.restore();
+}
+
+function fillTextwithSpaces(text, count) {
+    let diff = count - text.length;
+    if (diff > 0) {
+        for (var i=0; i<diff; i++) {
+            text += ' ';
+        }
+    }
+    return text;
 }
 
 function lossWithoutDCA(tc, bp, lastTransaction, stopLoss) {
@@ -134,12 +205,6 @@ function lossWithoutDCA(tc, bp, lastTransaction, stopLoss) {
     let totalSharesPurchased = lastTransaction.Total_Shares;
     let totalLoss = Math.abs(lastTransaction.Cumulative_Cost - totalSharesPurchased*stopLossPrice).toFixed(2);
 
-    print('\n--------------------------------------------');
-    print(' Stop Loss Price:         $' + stopLossPrice);
-    print(' Loss without DCA:      - $' + loss);
-    print(' Loss with DCA:         - $' + totalLoss);
-    print('--------------------------------------------\n');
-
     let result = {
         'Stop_Loss_Price'  : stopLossPrice,
         'Loss_without_DCA' : loss,
@@ -150,12 +215,14 @@ function lossWithoutDCA(tc, bp, lastTransaction, stopLoss) {
 }
 
 function extractAsCSV(transactions, result, ticker) {
+    let screenOutput = [];
+
     let obj = transactions[0];
 
     let headers = 'Purchase #';
     let emptyRow = ' ';
     for (var prop in obj) {
-        headers += ', ';
+        headers += ',';
         emptyRow += ', '; 
         headers += prop;
     }
@@ -165,6 +232,7 @@ function extractAsCSV(transactions, result, ticker) {
     print('----------------------------------------------------------------------------------------------------\n');
 
     print(headers);
+    screenOutput.push(headers.split(','));
 
     for (var i=0; i<transactions.length; i++) {
         var t = transactions[i];
@@ -172,16 +240,33 @@ function extractAsCSV(transactions, result, ticker) {
         let row = '' + (i+1);
         
         for (var prop in t) {
-            row += ', ';
+            row += ',';
             row += t[prop];
         }
 
         print(row);
+
+        screenOutput.push(row.split(','));
     }
 
     print(emptyRow);
-    print('Ticker, ' + ticker);
-    print('Stop Loss Price, ' + result.Stop_Loss_Price);
-    print('Loss without DCA, ' + result.Loss_without_DCA);
-    print('Loss with DCA, ' + result.Loss_with_DCA);
+    screenOutput.push(emptyRow.split(','));
+
+    var row = 'Ticker, ' + ticker;
+    print(row);
+    screenOutput.push(row.split(','));
+
+    row = 'Stop Loss Price, ' + result.Stop_Loss_Price;
+    print(row);
+    screenOutput.push(row.split(','));
+
+    row = 'Loss without DCA, ' + result.Loss_without_DCA;
+    print(row);
+    screenOutput.push(row.split(','));
+
+    row = 'Loss with DCA, ' + result.Loss_with_DCA;
+    print(row);
+    screenOutput.push(row.split(','));
+
+    return screenOutput;
 }
