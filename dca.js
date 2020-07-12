@@ -11,12 +11,15 @@ let maxNumPurchases = +args[6];      // Max number of purchases to do
 let stopLossPerc = +args[7]/100;     // Stop loss percentage
 let exitPrice = +args[8];            // Exit price
 
+// Calculate exit percentage from dollar cost average (moving target)
 let incExitPricePerc = (((exitPrice - bestPrice)*100)/bestPrice)/100;
 
 print('\n -----------------------------------------------------------------------------------');
 print('| Purchase: ' + ticker + ' plan with: $' + totalCost + ' max investment.');
 print('|      Initial purchase at price: $' + bestPrice);
 print('|      Next purchase when down: ' + args[5] + '% with max: ' + maxNumPurchases + ' additional cost averaging purchases.');
+print('|      If after ' + maxNumPurchases + ' DCA purchases, price drops: ' + args[7] + '% from average cost, exit.');
+print('|      Exit when price increases of: ' + (incExitPricePerc*100).toFixed(2) + '% from average cost');
 print(' -----------------------------------------------------------------------------------');
 
 const K = 1-downPerc;
@@ -26,24 +29,15 @@ for (var i=0; i<=maxNumPurchases-1; i++) {
     sum += Math.pow(1+K, i);
 }
 
-const numberShares = (totalCost / (bestPrice * (1 + K * sum))).toFixed(0);
+const numberShares = Math.ceil(totalCost / (bestPrice * (1 + K * sum)));
 
 let transactions = [];
 
 let date = new Date();
 
-transactions.push({
-    Nun_Shares_Purchase: +numberShares,
-    Price_Purchase: +bestPrice,
-    Total_Shares: +numberShares,
-    Avg_Price: +bestPrice,
-    Purchase_Cost: +(+numberShares * bestPrice).toFixed(2),
-    Current_Loss: 0,
-    Cumulative_Cost: +(+numberShares * bestPrice).toFixed(2),
-    Executed_On: date.toLocaleDateString() + ' - ' + date.toLocaleTimeString()
-});
-
-addExitPriceAndProfit(transactions[0], incExitPricePerc);
+transactions.push(transactionBuilder(numberShares, bestPrice, numberShares, bestPrice, 0, 
+                                     numberShares * bestPrice, 
+                                     date.toLocaleDateString() + ' - ' + date.toLocaleTimeString()));
 
 printLineReport('Initial', transactions[0]);
 
@@ -75,7 +69,7 @@ function addAndCalculateAverage(ts, qty, prc, lastPurchase, maxInvestment) {
 
     // On the last purchase round up number of shares that bring total cost as close as possible to max investable amount
     if (lastPurchase) {
-        let addQty = +((maxInvestment - totCost)/prc).toFixed(0);
+        let addQty = Math.floor((maxInvestment - totCost)/prc);
         qty += addQty;
         totQty = qty;
         totCost = qty * prc;
@@ -89,18 +83,7 @@ function addAndCalculateAverage(ts, qty, prc, lastPurchase, maxInvestment) {
     // Calculate average purchase price
     let avgPrc = +(totCost/totQty).toFixed(2);
 
-    let t = {
-        Nun_Shares_Purchase: qty,
-        Price_Purchase: prc,
-        Total_Shares: totQty,
-        Avg_Price: avgPrc,
-        Purchase_Cost: +(qty*prc).toFixed(2),
-        Current_Loss: +(totQty * (prc - avgPrc)).toFixed(2),
-        Cumulative_Cost: +totCost.toFixed(2),
-        Executed_On: ' '
-    };
-
-    addExitPriceAndProfit(t, incExitPricePerc);
+    let t = transactionBuilder(qty, prc, totQty, avgPrc, totQty * (prc - avgPrc), totCost, ' ');
 
     transactions.push(t);
 }
@@ -109,6 +92,23 @@ function addExitPriceAndProfit(t, incPerc) {
     t.Exit_Price = (t.Avg_Price * (1+incPerc)).toFixed(2);
     t.Trade_Profit = ((t.Total_Shares * t.Exit_Price) - t.Cumulative_Cost).toFixed(2);
     t.Completed_On = ''
+}
+
+function transactionBuilder(nsp, pp, ts, ap, cl, cc, ed) {
+    let t = {
+        Nun_Shares_Purchase: +nsp,
+        Price_Purchase: +pp,
+        Total_Shares: +ts,
+        Avg_Price: +ap,
+        Purchase_Cost: (nsp * pp).toFixed(2),
+        Current_Loss: (cl).toFixed(2),
+        Cumulative_Cost: (cc).toFixed(2),
+        Executed_On: ed
+    };
+
+    addExitPriceAndProfit(t, incExitPricePerc);
+
+    return t;
 }
 
 function printLineReport(iteration, data) {
