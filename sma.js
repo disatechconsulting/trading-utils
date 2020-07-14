@@ -1,3 +1,7 @@
+/**
+ * Single Moving Average
+ */
+
 const print = console.log.bind(console);
 const debug = console.log.bind(console);
 

@@ -13,6 +13,7 @@
     "node-fetch": "^2.6.0",
     "colors": "^1.4.0",
     "axel": "^0.0.3",
-    "properties-reader": "^2.0.0"
+    "properties-reader": "^2.0.0",
+    "superagent": "^5.3.1"
   }
 }

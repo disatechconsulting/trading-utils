@@ -1,3 +1,7 @@
+/**
+ * Dollar Cost Averaging Purchase Plan
+ */
+
 const ctx = require('axel');
 
 const print = console.log.bind(console);
