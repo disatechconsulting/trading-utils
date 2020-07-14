@@ -5,7 +5,8 @@
 const print = console.log.bind(console);
 const debug = console.log.bind(console);
 
-const config = require('config');
+const fs    = require('fs');
+const nconf = require('nconf');
 const fetch = require('node-fetch');
 const colors = require('colors');
 const ctx = require('axel');
@@ -14,8 +15,9 @@ const propertiesHandler = require('properties-reader');
 /** Readable and Writable file */
 const propsFileName = 'data.props';
 
-const serviceUrl = config.get('FMP.url');
-const keys = config.get('FMP.apiKey');
+nconf.file({ file: 'config/default-local.json' });
+const serviceUrl = nconf.get('FMP').url;
+const keys = nconf.get('FMP').apiKey;
 let properties = propertiesHandler(propsFileName);
 let counter = +properties.get('counter.api.index');
 
