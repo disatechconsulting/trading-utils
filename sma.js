@@ -14,8 +14,8 @@ const propertiesHandler = require('properties-reader');
 /** Readable and Writable file */
 const propsFileName = 'data.props';
 
-const serviceUrl = config.get('Service.url');
-const keys = config.get('Service.apiKey');
+const serviceUrl = config.get('FMP.url');
+const keys = config.get('FMP.apiKey');
 let properties = propertiesHandler(propsFileName);
 let counter = +properties.get('counter.api.index');
 
