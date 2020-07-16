@@ -10,6 +10,11 @@
     },
     "ALPACA": {
       "apiKey": "abc",
-      "apiSecret": "defg"
+      "apiSecret": "defg",
+      "url_api": "https://api.alpaca.markets",
+      "url_data": "https://data.alpaca.markets"
+    },
+    "ALPHAVANTAGE": {
+      "apiKey": "abc"
     }
 }

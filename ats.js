@@ -1,61 +1,106 @@
 /**
  * Automated Trading Setups
  */
+const print = console.log.bind(console);
+const debug = console.log.bind(console);
+
+const fs = require('fs');
+const nconf = require('nconf');
 const superagent = require('superagent');
 
-/**
- * This function will generate a token used when loggin on
-function generate_device_token() {
-    var rands = [];
+nconf.file({ file: 'config/default-local.json' });
 
-    for (var i in range(0, 16)) {
-        var r = random.random();
-        var rand = 4294967296.0 * r;
-        console.log(rand);
-        rands.push((int(rand) >> ((3 & i) << 3)) & 255)
-    }
+var apiKey = nconf.get('ALPACA').apiKey;
+var secret = nconf.get('ALPACA').apiSecret;
+var url_api = nconf.get('ALPACA').url_api;
+var url_data = nconf.get('ALPACA').url_data;
 
-    var hexa = [];
-    for (var i in range(0, 256)) {
-        hexa.push(str(hex(i+256)).lstrip("0x").rstrip("L")[1:])
-    }
-
-    var id = '';
-    for (var i in range(0, 16)) {
-        id += hexa[rands[i]];
-
-        if ((i == 3) || (i == 5) || (i == 7) || (i == 9)) {
-            id += '-';
-        }
+function getAccountInfo() {
+    superagent
+        .get(url_api + '/v2/account')
+        .set({
+            'APCA-API-KEY-ID': apiKey,
+            'APCA-API-SECRET-KEY': secret
+        })
+        .end((err, res) => {
+            if (!err) {
+                var result = JSON.parse(res.text);
+                print(result);
+            } else {
+                debug(JSON.parse(err.response.text));
+            }
             
-    }
+    });
+}
 
-    return id
-}*/
+function getListOrders() {
+    superagent
+        .get(url_api + '/v2/orders?status=open')
+        .set({
+            'APCA-API-KEY-ID': apiKey,
+            'APCA-API-SECRET-KEY': secret
+        })
+        .end((err, res) => {
+            if (!err) {
+                var result = JSON.parse(res.text);
+                print(result);
+            } else {
+                debug(JSON.parse(err.response.text));
+            }
+            
+    });
+}
 
-//console.log(generate_device_token());
+function getLastQuoteForStock(ticker) {
+    superagent
+        .get(url_data + '/v1/last_quote/stocks/' + ticker)
+        .set({
+            'APCA-API-KEY-ID': apiKey,
+            'APCA-API-SECRET-KEY': secret
+        })
+        .end((err, res) => {
+            if (!err) {
+                var result = JSON.parse(res.text);
+                print(result);
+            } else {
+                debug(err);
+            }
+            
+    });
+}
 
-superagent
-  .post('https://api.robinhood.com/token/')
-  .send({
-      client_id: 'c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS',
-      expires_in: 86400,
-      grant_type: 'password',
-      password: 'Giorgio@111141',
-      scope: 'internal',
-      username: 'sacchetto.diego@gmail.com',
-      challenge_type: 'email',
-      device_token: '522ea951-4ec1-4f88-8de8-9643d3207f2c'
-       
-   }) // sends a JSON post body
-  .set('accept', 'application/json')
-  .end((err, res) => {
-      if (!err) {
-        console.log('good');
-      } else {
-        console.log('bad');
-      }
-      
-  });
+function bracketOrderAtMarket(ticker, numShares, lossPrice, limitPrice, profitPrice) {
+    superagent
+    .post(url_api + '/v2/orders')
+    .send({
+        side: "buy",
+        symbol: ticker,
+        type: "market",
+        qty: numShares,
+        time_in_force: "gtc",
+        order_class: "bracket",
+        take_profit: {
+          limit_price: profitPrice
+        },
+        stop_loss: {
+          stop_price: lossPrice,
+          limit_price: limitPrice
+        }
+    })
+    .set({
+        'APCA-API-KEY-ID': apiKey,
+        'APCA-API-SECRET-KEY': secret
+    })
+    .end((err, res) => {
+        if (!err) {
+            var result = JSON.parse(res.text);
+            print(result);
+        } else {
+            debug(JSON.parse(err.response.text));
+        }
+    });
+}
 
+//bracketOrderAtMarket("AMD", 1, 50, 49, 60);
 
+getLastQuoteForStock('PD');
