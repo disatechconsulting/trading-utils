@@ -226,7 +226,8 @@ function sma(ticker, interval, numDataPoints, key) {
 }
 
 /**
- * 
+ * ADX: average directional index
+ * ADX values help traders identify the strongest and most profitable trends to trade. The values are also important for distinguishing between trending and non-trending conditions. Many traders will use ADX readings above 25 to suggest that the trend is strong enough for trend-trading strategies. Conversely, when ADX is below 25, many will avoid trend-trading strategies
  * @param {*} ticker 
  * @param {*} interval 
  * @param {*} numDataPoints 
@@ -245,6 +246,7 @@ function adx(ticker, interval, numDataPoints, key) {
         let values = data["Technical Analysis: ADX"];
         let result = {
             title: 'ADX - Average Directional Movement Index',
+            description: 'ADX values help traders identify the strongest and most profitable trends to trade. The values are also important for distinguishing between trending and non-trending conditions. Many traders will use ADX readings above 25 to suggest that the trend is strong enough for trend-trading strategies. Conversely, when ADX is below 25, many will avoid trend-trading strategies',
             url: url1,
             ticker: ticker,
             days: 0,
