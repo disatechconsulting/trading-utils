@@ -24,6 +24,5 @@ if [ $# -le 1 ] # if less than two arguments supplied, display help
         display_usage
         exit 1
     else 
-        echo $2
         node sma.js $1 $2
 fi
