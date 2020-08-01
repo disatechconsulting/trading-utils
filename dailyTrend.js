@@ -16,7 +16,7 @@ let op = args[2];
 let ticker = args[3];
 let parma1 = args[4];
 
-const ops = ['VWAP', 'RSI', 'SMA', 'ADX', 'AROON'];
+const ops = ['VWAP', 'RSI', 'SMA', 'ADX', 'AROON', 'BBAND', 'TREND'];
 
 if (ops.indexOf(op) >= 0) {
     
@@ -30,6 +30,10 @@ if (ops.indexOf(op) >= 0) {
         adx(ticker, 'daily', parma1, key);
     } else if (op === ops[4]) {
         aroon(ticker, 'daily', parma1, key);
+    } else if (op === ops[5]) {
+        bband(ticker, 'daily', parma1, key);
+    } else if (op === ops[6]) {
+        trend(ticker, 'daily', parma1, key);
     }
 } else {
     print('Operation not recognized');
@@ -323,6 +327,144 @@ function aroon(ticker, interval, numDataPoints, key) {
         result.range = result.data[0].date + ' - ' + result.data[result.data.length-1].date
         print(result);
 
+    }).catch(function(err) {  
+        print('Fetch problem: ' + err.message);
+    });
+}
+
+/**
+ * BBAND: Bollinger Bands "the Squeeze." The bands, "are driven by volatility, and the Squeeze is a pure reflection of that volatility."
+ * When Bollinger Bands are far apart, volatility is high. When they are close together, it is low. A Squeeze is triggered when volatility reaches a six-month low and is identified when Bollinger Bands® reach a six-month minimum distance apart.
+ * @param {*} ticker 
+ * @param {*} interval 
+ * @param {*} numDataPoints 
+ * @param {*} key 
+ */
+function bband(ticker, interval, numDataPoints, key) {
+    if (!isNaN(interval)) {
+        interval += 'min';
+    }
+    let url1 = serviceUrl + '/query?function=BBANDS&symbol=' + ticker + '&interval=' + interval + '&time_period=' + numDataPoints + '&series_type=close&nbdevup=3&nbdevdn=3&apikey=' + key;
+
+    fetch(url1)
+    .then(function(response) { 
+        return response.json();
+    }).then(function(data) {
+        let values = data["Technical Analysis: BBANDS"];
+        let result = {
+            title: 'BBAND - Bollinger Bands - Squeeze.',
+            description: 'When Bollinger Bands are far apart, volatility is high. When they are close together, it is low. A Squeeze is triggered when volatility reaches a six-month low and is identified when Bollinger Bands® reach a six-month minimum distance apart.',
+            url: url1,
+            ticker: ticker,
+            days: 0,
+            range: '',
+            total: Object.keys(values).length,
+            data: []
+        }
+        let i = 0;
+        for (key in values) {
+            let obj = {
+                date: key,
+                upperBand: values[key]['Real Upper Band'],
+                middleBand: values[key]['Real Middle Band'],
+                lowerBand: values[key]['Real Lower Band']
+            }
+            result.data.push(obj);
+            i++;
+            // if (i==numDataPoints) {
+            //     break;
+            // }
+        }
+
+        result.days = result.data.length;
+        result.range = result.data[0].date + ' - ' + result.data[result.data.length-1].date
+        print(result);
+
+    }).catch(function(err) {  
+        print('Fetch problem: ' + err.message);
+    });
+}
+
+function getData(data, key) {
+    let i=0;
+    while (i < data.length) {
+        if (data[i][key]) {
+            return data[i][key];
+        } else {
+            i++;
+        }
+    }
+    return undefined;
+}
+
+function trend(ticker, interval, numDataPoints, key) {
+
+    let url1 = serviceUrl + '/query?function=SMA&symbol=' + ticker + '&interval=' + interval + '&time_period=' + numDataPoints + '&series_type=close&apikey=' + key;
+    let url2 = serviceUrl + '/query?function=ADX&symbol=' + ticker + '&interval=' + interval + '&time_period=' + numDataPoints + '&series_type=close&apikey=' + key;
+    let url3 = serviceUrl + '/query?function=AROON&symbol=' + ticker + '&interval=' + interval + '&time_period=' + numDataPoints + '&apikey=' + key;
+    let url4 = serviceUrl + '/query?function=BBANDS&symbol=' + ticker + '&interval=' + interval + '&time_period=' + numDataPoints + '&series_type=close&nbdevup=3&nbdevdn=3&apikey=' + key;
+
+    let keys = ['Technical Analysis: SMA', 'Technical Analysis: ADX', 'Technical Analysis: AROON', 'Technical Analysis: BBANDS'];
+
+    let urls = [url1, url2, url3, url4];
+
+    Promise.all(urls.map(function(url) {
+        return fetch(url);
+    } ))
+    .then(function(responses) {
+        return Promise.all( responses.map(function (response) { 
+            return response.json(); 
+        }))
+    })
+    .then(function(resultApis) { 
+        if (resultApis.length === keys.length) {
+            let smaData = getData(resultApis, keys[0]);
+            let adxData = getData(resultApis, keys[1]);
+            let aroonData = getData(resultApis, keys[2]);
+            let bbandsData = getData(resultApis, keys[3]);
+
+            let result = {
+                sma: 'SMA - Simple Moving Average - Buy if belowe the SMA value',
+                adx: 'ADX - Average Directional Movement Index - Above 25 => trend is strong enough for trend-trading. Below 25, avoid trend-trading strategies',
+                aroon: 'AROON - Bullish and Bearish Indexes - Movements above 70 => strong trend. Movements below 30 => low trend strength. Movements between 30 and 70 => indecision. (For example, if the bullish indicator remains above 70 while the bearish indicator remains below 30, the trend is definitively bullish)',
+                bbands: 'BBANDS - Bollinger Bands - Squeeze - When BBANDS are far apart, volatility is high. When they are close together, it is low. A Squeeze is triggered when volatility reaches a six-month low and is identified when BBANDS reach a six-month minimum distance apart',
+                ticker: ticker,
+                days: 0,
+                range: '',
+                total: Object.keys(smaData).length,
+                data: []
+            }
+            let i = 0;
+           // print(smaData);
+            for (var key in smaData) {
+                let obj = {
+                    date: key,
+                    sma: smaData[key].SMA,
+                    adx: adxData[key] ? adxData[key].ADX : 'n/a',
+                    aroon: {
+                        bullish: aroonData[key] ? aroonData[key]['Aroon Up'] : 'n/a',
+                        bearish: aroonData[key] ? aroonData[key]['Aroon Down'] : 'n/a'
+                    },
+                    bband: {
+                        upperBand: bbandsData[key] ? bbandsData[key]['Real Upper Band'] : 'n/a',
+                        middleBand: bbandsData[key] ? bbandsData[key]['Real Middle Band'] : 'n/a',
+                        lowerBand: bbandsData[key] ? bbandsData[key]['Real Lower Band'] : 'n/a'
+                    }
+                }
+                result.data.push(obj);
+                i++;
+                if (i==10) {
+                     break;
+                }
+            }
+    
+            result.days = result.data.length;
+            result.range = result.data[0].date + ' - ' + result.data[result.data.length-1].date
+            print(JSON.stringify(result, null, 4));
+
+        } else {
+            print('Some data didn\'t retrieve sucessfully');
+        }
     }).catch(function(err) {  
         print('Fetch problem: ' + err.message);
     });

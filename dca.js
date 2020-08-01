@@ -256,7 +256,7 @@ function extractAsCSV(transactions, result, ticker) {
     print(emptyRow);
     screenOutput.push(emptyRow.split(','));
 
-    var row = 'Ticker, ' + ticker;
+    var row = 'Ticker, ' + ticker + ', Max cost:, ' + totalCost + ', Perc. Down:, ' + downPerc + ', Num Purchases:, ' + maxNumPurchases + ', Perc. Stop:, ' + stopLossPerc + ', Exit Price:, ' + exitPrice;
     print(row);
     screenOutput.push(row.split(','));
 
@@ -269,6 +269,11 @@ function extractAsCSV(transactions, result, ticker) {
     screenOutput.push(row.split(','));
 
     row = 'Loss with DCA, ' + result.Loss_with_DCA;
+    print(row);
+    screenOutput.push(row.split(','));
+
+    row = 'Command t a ip pd nt pl ep, ' 
+          + './dca.sh ' + ticker + ' ' + totalCost + ' ' + bestPrice + ' ' + downPerc + ' ' + maxNumPurchases + ' ' + stopLossPerc + ' ' + exitPrice;
     print(row);
     screenOutput.push(row.split(','));
 
